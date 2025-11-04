@@ -1,78 +1,178 @@
-import React from "react";
-import { Stack, Link } from "expo-router";
-import { FlatList, Pressable, StyleSheet, View, Text, Alert, Platform } from "react-native";
-import { IconSymbol } from "@/components/IconSymbol";
-import { GlassView } from "expo-glass-effect";
-import { useTheme } from "@react-navigation/native";
 
-const ICON_COLOR = "#007AFF";
+import React, { useState, useRef, useCallback } from "react";
+import { Stack } from "expo-router";
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  Dimensions, 
+  Pressable, 
+  Platform,
+  ScrollView,
+  Alert
+} from "react-native";
+import { IconSymbol } from "@/components/IconSymbol";
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { colors } from "@/styles/commonStyles";
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+
+interface VideoPost {
+  id: string;
+  videoUrl: string;
+  username: string;
+  caption: string;
+  likes: number;
+  comments: number;
+  shares: number;
+  isLiked: boolean;
+}
+
+const SAMPLE_VIDEOS: VideoPost[] = [
+  {
+    id: '1',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    username: 'nature_lover',
+    caption: 'Beautiful sunset at the beach 🌅 #nature #sunset',
+    likes: 1234,
+    comments: 89,
+    shares: 45,
+    isLiked: false,
+  },
+  {
+    id: '2',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    username: 'creative_mind',
+    caption: 'Check out this amazing animation! 🎨 #art #creative',
+    likes: 2567,
+    comments: 156,
+    shares: 78,
+    isLiked: false,
+  },
+  {
+    id: '3',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    username: 'adventure_seeker',
+    caption: 'Epic adventure awaits! 🏔️ #travel #adventure',
+    likes: 3421,
+    comments: 234,
+    shares: 123,
+    isLiked: false,
+  },
+];
+
+function VideoPostItem({ post, isActive }: { post: VideoPost; isActive: boolean }) {
+  const [isLiked, setIsLiked] = useState(post.isLiked);
+  const [likes, setLikes] = useState(post.likes);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const player = useVideoPlayer(post.videoUrl, player => {
+    player.loop = true;
+    player.muted = false;
+  });
+
+  React.useEffect(() => {
+    if (isActive && player) {
+      player.play();
+      setIsPlaying(true);
+    } else if (player) {
+      player.pause();
+      setIsPlaying(false);
+    }
+  }, [isActive, player]);
+
+  const handleLike = () => {
+    setIsLiked(!isLiked);
+    setLikes(isLiked ? likes - 1 : likes + 1);
+  };
+
+  const handleComment = () => {
+    Alert.alert('Comments', 'Comment feature coming soon!');
+  };
+
+  const handleShare = () => {
+    Alert.alert('Share', 'Share feature coming soon!');
+  };
+
+  const togglePlayPause = () => {
+    if (isPlaying) {
+      player.pause();
+      setIsPlaying(false);
+    } else {
+      player.play();
+      setIsPlaying(true);
+    }
+  };
+
+  return (
+    <View style={styles.videoContainer}>
+      <Pressable onPress={togglePlayPause} style={styles.videoWrapper}>
+        <VideoView 
+          player={player} 
+          style={styles.video}
+          contentFit="cover"
+          nativeControls={false}
+        />
+        
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.7)']}
+          style={styles.gradient}
+        />
+
+        <View style={styles.videoInfo}>
+          <View style={styles.userInfo}>
+            <View style={styles.avatar}>
+              <IconSymbol name="person.fill" size={24} color={colors.card} />
+            </View>
+            <Text style={styles.username}>@{post.username}</Text>
+          </View>
+          <Text style={styles.caption}>{post.caption}</Text>
+        </View>
+
+        <View style={styles.actionButtons}>
+          <Pressable onPress={handleLike} style={styles.actionButton}>
+            <IconSymbol 
+              name={isLiked ? "heart.fill" : "heart"} 
+              size={32} 
+              color={isLiked ? colors.primary : colors.card} 
+            />
+            <Text style={styles.actionText}>{likes}</Text>
+          </Pressable>
+
+          <Pressable onPress={handleComment} style={styles.actionButton}>
+            <IconSymbol name="bubble.left.fill" size={32} color={colors.card} />
+            <Text style={styles.actionText}>{post.comments}</Text>
+          </Pressable>
+
+          <Pressable onPress={handleShare} style={styles.actionButton}>
+            <IconSymbol name="paperplane.fill" size={32} color={colors.card} />
+            <Text style={styles.actionText}>{post.shares}</Text>
+          </Pressable>
+        </View>
+      </Pressable>
+    </View>
+  );
+}
 
 export default function HomeScreen() {
-  const theme = useTheme();
-  const modalDemos = [
-    {
-      title: "Standard Modal",
-      description: "Full screen modal presentation",
-      route: "/modal",
-      color: "#007AFF",
-    },
-    {
-      title: "Form Sheet",
-      description: "Bottom sheet with detents and grabber",
-      route: "/formsheet",
-      color: "#34C759",
-    },
-    {
-      title: "Transparent Modal",
-      description: "Overlay without obscuring background",
-      route: "/transparent-modal",
-      color: "#FF9500",
-    }
-  ];
+  const [activeIndex, setActiveIndex] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  const renderModalDemo = ({ item }: { item: (typeof modalDemos)[0] }) => (
-    <GlassView style={[
-      styles.demoCard,
-      Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
-    ]} glassEffectStyle="regular">
-      <View style={[styles.demoIcon, { backgroundColor: item.color }]}>
-        <IconSymbol name="square.grid.3x3" color="white" size={24} />
-      </View>
-      <View style={styles.demoContent}>
-        <Text style={[styles.demoTitle, { color: theme.colors.text }]}>{item.title}</Text>
-        <Text style={[styles.demoDescription, { color: theme.dark ? '#98989D' : '#666' }]}>{item.description}</Text>
-      </View>
-      <Link href={item.route as any} asChild>
-        <Pressable>
-          <GlassView style={[
-            styles.tryButton,
-            Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }
-          ]} glassEffectStyle="clear">
-            <Text style={[styles.tryButtonText, { color: theme.colors.primary }]}>Try It</Text>
-          </GlassView>
-        </Pressable>
-      </Link>
-    </GlassView>
-  );
+  const handleScroll = useCallback((event: any) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const index = Math.round(offsetY / SCREEN_HEIGHT);
+    if (index !== activeIndex) {
+      setActiveIndex(index);
+    }
+  }, [activeIndex]);
 
   const renderHeaderRight = () => (
     <Pressable
-      onPress={() => Alert.alert("Not Implemented", "This feature is not implemented yet")}
-      style={styles.headerButtonContainer}
+      onPress={() => Alert.alert("Search", "Search feature coming soon!")}
+      style={styles.headerButton}
     >
-      <IconSymbol name="plus" color={theme.colors.primary} />
-    </Pressable>
-  );
-
-  const renderHeaderLeft = () => (
-    <Pressable
-      onPress={() => Alert.alert("Not Implemented", "This feature is not implemented yet")}
-      style={styles.headerButtonContainer}
-    >
-      <IconSymbol
-        name="gear"
-        color={theme.colors.primary}
-      />
+      <IconSymbol name="magnifyingglass" color={colors.text} size={24} />
     </Pressable>
   );
 
@@ -81,24 +181,34 @@ export default function HomeScreen() {
       {Platform.OS === 'ios' && (
         <Stack.Screen
           options={{
-            title: "Building the app...",
+            title: "Discover",
+            headerStyle: {
+              backgroundColor: colors.background,
+            },
+            headerTintColor: colors.text,
             headerRight: renderHeaderRight,
-            headerLeft: renderHeaderLeft,
           }}
         />
       )}
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <FlatList
-          data={modalDemos}
-          renderItem={renderModalDemo}
-          keyExtractor={(item) => item.route}
-          contentContainerStyle={[
-            styles.listContainer,
-            Platform.OS !== 'ios' && styles.listContainerWithTabBar
-          ]}
-          contentInsetAdjustmentBehavior="automatic"
+      <View style={styles.container}>
+        <ScrollView
+          ref={scrollViewRef}
+          pagingEnabled
           showsVerticalScrollIndicator={false}
-        />
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          decelerationRate="fast"
+          snapToInterval={SCREEN_HEIGHT}
+          snapToAlignment="start"
+        >
+          {SAMPLE_VIDEOS.map((post, index) => (
+            <VideoPostItem 
+              key={post.id} 
+              post={post} 
+              isActive={index === activeIndex}
+            />
+          ))}
+        </ScrollView>
       </View>
     </>
   );
@@ -107,55 +217,74 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor handled dynamically
+    backgroundColor: colors.background,
   },
-  listContainer: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+  videoContainer: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    backgroundColor: '#000',
   },
-  listContainerWithTabBar: {
-    paddingBottom: 100, // Extra padding for floating tab bar
+  videoWrapper: {
+    flex: 1,
+    position: 'relative',
   },
-  demoCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+  video: {
+    width: '100%',
+    height: '100%',
+  },
+  gradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 300,
+  },
+  videoInfo: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 100 : 120,
+    left: 16,
+    right: 80,
+  },
+  userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  demoIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
-  demoContent: {
-    flex: 1,
+  username: {
+    color: colors.card,
+    fontSize: 16,
+    fontWeight: '700',
   },
-  demoTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4,
-    // color handled dynamically
-  },
-  demoDescription: {
+  caption: {
+    color: colors.card,
     fontSize: 14,
-    lineHeight: 18,
-    // color handled dynamically
+    lineHeight: 20,
   },
-  headerButtonContainer: {
-    padding: 6,
+  actionButtons: {
+    position: 'absolute',
+    right: 16,
+    bottom: Platform.OS === 'ios' ? 100 : 120,
+    gap: 24,
   },
-  tryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
+  actionButton: {
+    alignItems: 'center',
+    gap: 4,
   },
-  tryButtonText: {
-    fontSize: 14,
+  actionText: {
+    color: colors.card,
+    fontSize: 12,
     fontWeight: '600',
-    // color handled dynamically
+  },
+  headerButton: {
+    padding: 8,
   },
 });
